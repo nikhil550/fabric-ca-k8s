@@ -13,10 +13,10 @@ spec:
       - name: redis-storage
         persistentVolumeClaim:
           claimName: mypvc
-      
+
       containers:
       - name: fabric-ca-k8s
-        image: hyperledger/fabric-ca:1.4.4
+        image: hyperledger/fabric-ca:1.4.9
         command: ["sh", "-c", "sleep 1 && fabric-ca-server init -b admin:adminpw -d --port 7054 "]
         env:
         - name: FABRIC_CA_SERVER_HOME
@@ -27,7 +27,7 @@ spec:
           value: 0.0.0.0
         - name: FABRIC_CA_SERVER_DEBUG
           value: "true"
-        # Uncomment if you want to run the CA with TLS enabled.  It is disabled by default. You can also run fabric-ca-server init and customize the fabric-ca-server-config.yaml file.  
+        # Uncomment if you want to run the CA with TLS enabled.  It is disabled by default. You can also run fabric-ca-server init and customize the fabric-ca-server-config.yaml file.
         # - name: FABRIC_CA_SERVER_TLS_ENABLED
         #   value: "true"
         - name: GODEBUG

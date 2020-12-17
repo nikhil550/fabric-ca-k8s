@@ -1,7 +1,5 @@
 # **Hyperledger Fabric Certificate Authority on Kubernetes (k8s)**
 
-## Watch this tutorial on [YouTube](https://youtu.be/PbMxqH6bNB8) before you do it on your local machine.
-
 Deploy a Hyperledger Fabric Certificate Authority using Native Kubernetes (k8s) for Production Hyperledger Fabric Networks Deployed on Cloud Infrastructure.
 # ***IMPORTANT NOTE: DO NOT USE THIS CONFIGURATION IN PRODUCTION AS TLS IS NOT ENABLED, FOR PRACTICE ONLY!***
 
@@ -14,7 +12,7 @@ Learn how to configure and deploy a Hyperledger Fabric Certificate Authority on 
 Note: This tutorial assumes a novice level of experience with Kubernetes and kubectl.  We are going to make it easy enough that if you do not have this experience, you can learn it on the fly.  Please refer to the Kubernetes links throughout this tutorial for additional information if you get stuck, see errors, or have difficulties.
 
 **Kubernetes** (a.k.a. k8s) [Kubernetes Documentation](https://kubernetes.io/)
-- minikube (for deployment of a k8s cluster on your local machine for testing and this tutorial) 
+- minikube (for deployment of a k8s cluster on your local machine for testing and this tutorial)
 - kubectl cli commands and help
 - kubernetes persistent volumes
 - kubernetes persistent volume claims
@@ -27,7 +25,7 @@ Note: This tutorial assumes a novice level of experience with Kubernetes and kub
  - Fabric CA Client
  - Membership Service Provider (MSP)
 
-## Step-by-Step Tutorial 
+## Step-by-Step Tutorial
 ### At the time of this update, this tutorial was developed using:
 - Mac OS Catalina 10.15.4
 - minikube version: v1.9.2
@@ -105,7 +103,7 @@ Expected output after running the above command is similar to below.
 
 ![Screenshot of redis pod status](/assets/redispodrun.png?raw=true "redis pod status")
 
-## **Step 5:** Init the fabric-ca-server and modify the fabric-ca-server-config.yaml file 
+## **Step 5:** Init the fabric-ca-server and modify the fabric-ca-server-config.yaml file
 In the terminal, execute the following command to run a kubernetes job that will 'init' the Fabric CA Server and generate a template file that we can customize.  
 ```
 kubectl apply -f fabric-ca-server-initJob.yaml
@@ -121,7 +119,7 @@ If successful, the job should indicated that it completed with an output similar
 Note that a Kubernetes Job runs to completion if successful, and a deployment stays running.  
 
 Next we are going to copy the fabric-ca-server-config.yaml file from the container to our local machine, modify it, then copy it back to the container so that when we start the server our customized variables will be read.  To do this, we use a `kubectl cp` command, specifying the container and location of the target file in the container.
-Note the convention of the command structure is "***pod-name:path-to-target-file***" followed by a space, then the target location you would like to copy the file to. 
+Note the convention of the command structure is "***pod-name:path-to-target-file***" followed by a space, then the target location you would like to copy the file to.
 ```
 kubectl cp redis:/data/redis/hyperledger/fabric-ca/k8s/fabric-ca-server-config.yaml $PWD/fabric-ca-server-config.yaml
 ```
@@ -131,7 +129,7 @@ kubectl cp $PWD/fabric-ca-server-config.yaml redis:/data/redis/hyperledger/fabri
 ```
 Next, we need to exec into the file container and delete the 'ca-cert' file and the 'msp' directory located at 'redis:/data/redis/hyperledger/fabric-ca/k8s/' so when we start the fabric-ca-server our certs are regenerated using our new custom variables in the fabric-ca-server-config.yaml file we just copied into the container.  In the terminal, exec into the container by running the following command:
 ```
-kubectl exec -it redis -- /bin/bash
+3
 ```
 Once inside the container, change directory to our target location so we can delete the file and directory.
 ```
@@ -185,7 +183,7 @@ Once you are in the container, make a directory for where we want to store our c
 ```
 mkdir -p /shared/artifacts/org1/ca/admin
 export FABRIC_CA_CLIENT_HOME=/shared/artifacts/org1/ca/admin
-fabric-ca-client enroll -d -u http://admin:adminpw@0.0.0.0:7054
+fabric-ca-client enroll -d -u http://admin:adminpw@0.0.0.0:7054 --caname ca-org1 --tls.certfiles ${PWD}/shared/hyperledger/fabric-ca/tls-cert.pem
 ```
 You should see an output similar to this:
 
@@ -194,7 +192,7 @@ You should see an output similar to this:
 Now that you have a running Fabric CA in Kubernetes, let's register and enroll a peer node, org-admin, and user. Then we will practice modifying the user credentials, and listing and storing the user certs!
 For this part of the tutorial, it is recommended that you refer to the [Hyperledger Fabric CA documentation](https://hyperledger-fabric-ca.readthedocs.io/en/release-1.4/users-guide.html) to see and become familiar with the various commands and attributes of managing cryptographic identities.  
 
-Still in the fabric-ca container, run the following command to register an org-admin with specific attributes. 
+Still in the fabric-ca container, run the following command to register an org-admin with specific attributes.
 Note: Type and attributes are important to understand, so I encourage you to thoroughly review the [Hyperledger Fabric CA docs](https://hyperledger-fabric-ca.readthedocs.io/en/release-1.4/users-guide.html)!
 ```
 fabric-ca-client register -d --id.name admin-org1 --id.secret org1AdminPW --id.type admin --id.attrs "hf.Registrar.Roles=*,hf.Registrar.Attributes=*,hf.Revoker=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert" -u http://0.0.0.0:7054
@@ -261,7 +259,7 @@ fabric-ca-client identity list --id user
 ```
 The user identity is now affiliated with org1.department1.  
 
-## **Congratulations!** You have successfully set up your own Hyperledger Fabric Certificate Authority on Kubernetes, modified the Fabric CA Server configuration file, registered and enrolled identities, and modified identities and inspected the result.  You are now ready to explore running your own Fabric Certificate Authority in production systems without using Cryptogen! 
+## **Congratulations!** You have successfully set up your own Hyperledger Fabric Certificate Authority on Kubernetes, modified the Fabric CA Server configuration file, registered and enrolled identities, and modified identities and inspected the result.  You are now ready to explore running your own Fabric Certificate Authority in production systems without using Cryptogen!
 
 Feel free to continue referencing the [Hyperledger Fabric CA documentation](https://hyperledger-fabric-ca.readthedocs.io/en/release-1.4/users-guide.html) and practicing the fabric-ca-client commands against this running instance.  
 
@@ -270,4 +268,38 @@ If you are ready to cleanup, run the following commands:
 Type 'exit' to exit the running pod session, then:
 ```
 minikube delete
+```
+
+
+## Scratch
+
+```
+kubectl cp $PWD/stuff/fabric-ca/ redis:/data/redis/hyperledger/fabric-ca/
+```
+
+
+```
+kubectl cp $PWD/stuff/ redis:/data/redis/hyperledger/orderer/
+```
+
+```
+kubectl cp $PWD/stuff/ redis:/data/redis/hyperledger/peer/
+```
+
+
+```
+kubectl apply -f fabric-orderer-deployment.yaml
+```
+
+
+```
+kubectl apply -f fabric-peer-deployment.yaml
+```
+
+```
+export CORE_PEER_TLS_ENABLED=true
+export CORE_PEER_LOCALMSPID="Org1MSP"
+export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/stuff/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=${PWD}/stuff/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+export CORE_PEER_ADDRESS=localhost:9040
 ```
