@@ -4,13 +4,14 @@ kind: Service
 metadata:
   name: peer
 spec:
+  type: LoadBalancer
   selector:
     app: peer
   ports:
   - protocol: TCP
     targetPort: 9040
     port: 9040
-    name: grpc
+    nodePort: 30112
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -31,7 +32,7 @@ spec:
       volumes:
       - name: redis-storage
         persistentVolumeClaim:
-          claimName: mypvc
+          claimName: filepvc
 
       containers:
       - name: peer

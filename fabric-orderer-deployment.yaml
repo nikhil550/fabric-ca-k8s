@@ -4,13 +4,14 @@ kind: Service
 metadata:
   name: orderer
 spec:
+  type: LoadBalancer
   selector:
     app: orderer
   ports:
   - protocol: TCP
     targetPort: 8040
     port: 8040
-    name: grpc
+    nodePort: 30112
 ---
 apiVersion: apps/v1
 kind: Deployment

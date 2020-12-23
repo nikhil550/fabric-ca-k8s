@@ -309,8 +309,8 @@ csr:
         O: org1.example.com
         OU:
    hosts:
-     - 0.0.0.0
-     - org1.example.com
+     - 159.122.186.71
+     - 127.0.0.1
    ca:
       expiry: 131400h
       pathlength: 1

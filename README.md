@@ -74,17 +74,11 @@ Now run the following kubectl command in the terminal to provision a persistent 
 ```
 kubectl apply -f setup-pvc.yaml
 ```
-The expected output is similar to below.
-
-![Screeshot of expected output setup-pvc.yaml](/assets/createpvcexpectedoutput.png?raw=true "output from command")
-
 Now run the following command in the terminal to confirm your persistent volume claim has been set up.
 ```
 kubectl get pvc
 ```
 The expected output from the above command should be similar to:
-
-![Screenshot of kubectl get pvc output](/assets/getpvcexpectedoutput.png?raw=true "output from `kubectl get pvc` command")
 
 In the terminal, execute the following command to set up a storage volume that is connected to the PVC we created in the previous step.  This is one method of persisting data in the cloud even if your Kubernetes pods restart.  ***Important Note: Data will NOT persist if you delete the persistent volume claim!  If you plan to start over and you run `minikube delete` your persistent volume and persistent volume claim will be deleted!***
 
@@ -93,7 +87,6 @@ kubectl apply -f redis-storage.yaml
 ```
 Expected output after running the above command is similar to below.
 
-![Screenshot of pod creation terminal output](/assets/redispodcreated.png?raw=true "storage pod created")
 
 In the terminal, run the following command to check the status of the pod.
 ```
@@ -101,50 +94,18 @@ kubectl get pod
 ```
 Expected output after running the above command is similar to below.
 
-![Screenshot of redis pod status](/assets/redispodrun.png?raw=true "redis pod status")
 
-## **Step 5:** Init the fabric-ca-server and modify the fabric-ca-server-config.yaml file
-In the terminal, execute the following command to run a kubernetes job that will 'init' the Fabric CA Server and generate a template file that we can customize.  
-```
-kubectl apply -f fabric-ca-server-initJob.yaml
-```
-To check the status of the kubernetes job, execute the following command:
-```
-kubectl get pod
-```
-If successful, the job should indicated that it completed with an output similar to below.
 
-![Screenshot of init job completion status](/assets/initjobcompletion.png?raw=true "Init job completion status")
+## **Step 5:** Deploy the fabric-ca-server and perform identity management tasks
 
-Note that a Kubernetes Job runs to completion if successful, and a deployment stays running.  
+Copy the `fabric-ca-server-config.yaml` file into the redis container:
 
-Next we are going to copy the fabric-ca-server-config.yaml file from the container to our local machine, modify it, then copy it back to the container so that when we start the server our customized variables will be read.  To do this, we use a `kubectl cp` command, specifying the container and location of the target file in the container.
-Note the convention of the command structure is "***pod-name:path-to-target-file***" followed by a space, then the target location you would like to copy the file to.
 ```
-kubectl cp redis:/data/redis/hyperledger/fabric-ca/k8s/fabric-ca-server-config.yaml $PWD/fabric-ca-server-config.yaml
+kubectl cp $PWD/hyperledger/ redis:/data/redis/
 ```
-Edit the CSR section of the fabric-ca-server-config.yaml file by changing the State (S) from ***"North Carolina"*** to ***"Texas"*** and the Organization (O) to ***Hyperchain Labs*** and the Organizational Unit (OU) to ***Energy*** and then save your changes.  Next, run the following command in the terminal to copy our modified file back to the container so we can use it to start the Fabric CA Server.
-```
-kubectl cp $PWD/fabric-ca-server-config.yaml redis:/data/redis/hyperledger/fabric-ca/k8s/fabric-ca-server-config.yaml
-```
-Next, we need to exec into the file container and delete the 'ca-cert' file and the 'msp' directory located at 'redis:/data/redis/hyperledger/fabric-ca/k8s/' so when we start the fabric-ca-server our certs are regenerated using our new custom variables in the fabric-ca-server-config.yaml file we just copied into the container.  In the terminal, exec into the container by running the following command:
-```
-3
-```
-Once inside the container, change directory to our target location so we can delete the file and directory.
-```
-cd /data/redis/hyperledger/fabric-ca/k8s/
-```
-Then delete the ca-cert.pem file and the msp directory by running the following command inside the container:
-```
-rm ca-cert.pem && rm -rf msp
-```
-Leave the container by running the following command while still inside the container:
-```
-exit
-```
-## **Step 6:** Deploy the fabric-ca-server and perform identity management tasks
-Now we are ready to start our Fabric CA Server and interact with it by runnning the following command in the terminal:
+
+
+Now we are ready to start our Fabric CA Server and interact with it by running the following command in the terminal:
 ```
 kubectl apply -f fabric-ca-deployment.yaml
 ```
@@ -171,93 +132,19 @@ Let's get started by getting into the fabric CA container and exporting some env
 ```
 kubectl get pod
 ```
-Next, copy the full pod name because we are going to paste it into our next command when we do `kubectl exec -it [YOUR POD NAME PASTED HERE] -- /binbash`.
-In my case ***(for reference only, do not copy and paste this!!)*** it was:
-```
-kubectl exec -it fabric-ca-k8s-696566c87f-xz9hx -- /bin/bash
-```
-***Again, make sure you copy the running pod and NOT the completed job as they have similar names.***
 
-Once you are in the container, make a directory for where we want to store our certs, then export the FABRIC_CA_CLIENT_HOME environment variable that points to this location, then enroll the admin identity that was registered during the server start.
-***NOTE: If TLS were enabled, you would also have to export the location of the FABRIC_CA_CLIENT_TLS_CERTFILES***
 ```
-mkdir -p /shared/artifacts/org1/ca/admin
-export FABRIC_CA_CLIENT_HOME=/shared/artifacts/org1/ca/admin
-fabric-ca-client enroll -d -u http://admin:adminpw@0.0.0.0:7054 --caname ca-org1 --tls.certfiles ${PWD}/shared/hyperledger/fabric-ca/tls-cert.pem
-```
-You should see an output similar to this:
-
-![Screenshot of output from enroll admin command](/assets/enrolladminoutput.png?raw=true "Enroll admin ouput")
-
-Now that you have a running Fabric CA in Kubernetes, let's register and enroll a peer node, org-admin, and user. Then we will practice modifying the user credentials, and listing and storing the user certs!
-For this part of the tutorial, it is recommended that you refer to the [Hyperledger Fabric CA documentation](https://hyperledger-fabric-ca.readthedocs.io/en/release-1.4/users-guide.html) to see and become familiar with the various commands and attributes of managing cryptographic identities.  
-
-Still in the fabric-ca container, run the following command to register an org-admin with specific attributes.
-Note: Type and attributes are important to understand, so I encourage you to thoroughly review the [Hyperledger Fabric CA docs](https://hyperledger-fabric-ca.readthedocs.io/en/release-1.4/users-guide.html)!
-```
-fabric-ca-client register -d --id.name admin-org1 --id.secret org1AdminPW --id.type admin --id.attrs "hf.Registrar.Roles=*,hf.Registrar.Attributes=*,hf.Revoker=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert" -u http://0.0.0.0:7054
-```
-Note the output will contain the listing of the identity password and attributes.
-
-Now let's register a peer node:
-```
-fabric-ca-client register -d --id.name org1peer1 --id.secret org1peer1PW --id.type peer -u http://0.0.0.0:7054
-```
-And finally, we'll register a user:
-```
-fabric-ca-client register -d --id.name user --id.secret userpw --id.type client -u http://0.0.0.0:7054
+export PATH=${PWD}/bin:${PWD}:$PATH
+export FABRIC_CFG_PATH=$PWD/config/
 ```
 
-Now that we have registered our idenities and peer node, we need to enroll them.  We will need the server output to store the credentials in what will become our msp folder.  To do this, we point our FABRIC_CA_CLIENT_HOME export variable at it.
-Let's start by enrolling the admin identity:
 ```
-export FABRIC_CA_CLIENT_HOME=/shared/artifacts/org1/org1admin
-fabric-ca-client enroll -d -u http://admin-org1:org1AdminPW@0.0.0.0:7054
+mkdir -p $PWD/org1/ca/admin
+export FABRIC_CA_CLIENT_HOME=$PWD/org1/ca/admin
+fabric-ca-client enroll -d -u https://admin:adminpw@159.122.186.71:30102 --caname ca-org1 --tls.certfiles ${PWD}/hyperledger/fabric-ca/tls-cert.pem
 ```
-Now let's enroll the peer node identity:
-```
-export FABRIC_CA_CLIENT_HOME=/shared/artifacts/org1/peer1
-fabric-ca-client enroll -d -u http://org1peer1:org1peer1PW@0.0.0.0:7054
-```
-And finally, let's enroll the user identity:
-```
-export FABRIC_CA_CLIENT_HOME=/shared/artifacts/org1/user
-fabric-ca-client enroll -d -u http://user:userpw@0.0.0.0:7054
-```
-Now let's practice with some fabric-ca-client commands.  First, let's list all the identities:
-```
-fabric-ca-client identity list
-```
-**Expected output is an error!**  Why? The last variable export we did was for the user identity, so we need to prove that we have the access and authority to run these commands because the user identity is not authorized to.  In short, it is a security measure made possible by cryptographic identities and is the foundation of a secure blockchain network.  We should be worried if we did not get this error.
 
-How do we list the identities? By exporting the variable that proves we have access to the admin's signing certificate.  We do this by exporting the variable that points back to the admin cert location BEFORE we start running the fabric-ca-client commands.
-```
-export FABRIC_CA_CLIENT_HOME=/shared/artifacts/org1/ca/admin
-fabric-ca-client identity list
-```
-The expected output is a listing of the idenities and their attributes registered with this Certificate Authority.  
-If you inspect closely the output of the identity list command we just ran, you'll notice that none of our idenities are affilliated with an org.  Let's change that by modifying the identities to add an affiliation to org1.
-```
-fabric-ca-client identity modify admin-org1 --affiliation org1
-```
-The expected output is that we 'Successfully modified identity'.  Now we can run the identity list command again and inspect the output to make sure that org1admin identity is indeed affiliated to org1.
-```
-fabric-ca-client identity list --id admin-org1
-```
-Inspect the output of the command and you will see that admin-org1 is now affiliated with org1!
-Now let's repeat the steps for the peer node and the user by running each command in the terminal one at a time.
-```
-fabric-ca-client identity modify org1peer1 --affiliation org1
-fabric-ca-client identity list --id org1peer1
-```
-The node org1peer1 is now affiliated with org1.  
 
-Finally, let's affiliate the user identity with org1.department1
-```
-fabric-ca-client identity modify user --affiliation org1.department1
-fabric-ca-client identity list --id user
-```
-The user identity is now affiliated with org1.department1.  
 
 ## **Congratulations!** You have successfully set up your own Hyperledger Fabric Certificate Authority on Kubernetes, modified the Fabric CA Server configuration file, registered and enrolled identities, and modified identities and inspected the result.  You are now ready to explore running your own Fabric Certificate Authority in production systems without using Cryptogen!
 
@@ -273,9 +160,6 @@ minikube delete
 
 ## Scratch
 
-```
-kubectl cp $PWD/stuff/fabric-ca/ redis:/data/redis/hyperledger/fabric-ca/
-```
 
 
 ```
@@ -299,7 +183,7 @@ kubectl apply -f fabric-peer-deployment.yaml
 ```
 export CORE_PEER_TLS_ENABLED=true
 export CORE_PEER_LOCALMSPID="Org1MSP"
-export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/stuff/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
-export CORE_PEER_MSPCONFIGPATH=${PWD}/stuff/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
-export CORE_PEER_ADDRESS=localhost:9040
+export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/hyperledger/peer/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=${PWD}/hyperledger/peer/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+export CORE_PEER_ADDRESS=localhost:30112
 ```
