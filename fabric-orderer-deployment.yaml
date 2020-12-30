@@ -32,7 +32,7 @@ spec:
       volumes:
       - name: redis-storage
         persistentVolumeClaim:
-          claimName: mypvc
+          claimName: filepvc
 
       containers:
       - name: orderer
@@ -58,7 +58,7 @@ spec:
         - name: ORDERER_GENERAL_LOCALMSPDIR
           value: /shared/hyperledger/orderer/ordererOrganizations/example.com/orderers/orderer.example.com/msp
         - name: ORDERER_GENERAL_LOCALMSPID
-          value: OrdererMSP
+          value: SymbridgeOrdererMSP
         - name: ORDERER_GENERAL_GENESISMETHOD
           value: file
         - name: ORDERER_GENERAL_GENESISFILE

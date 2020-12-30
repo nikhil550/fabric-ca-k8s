@@ -1,13 +1,12 @@
-# **Hyperledger Fabric on IBM CLoud
+# Hyperledger Fabric on IBM CLoud
 
 ## Connect to your IBM Kubernetes service
 
-When you have connected, you will be able to run the following comand
+When you have connected, you will be able to run the following command
 ```
 kubectl get all
 ```
 Expected output is similar to below, note your ClusterIP will be different.
-
 
 
 ## Set up the persistent volume claim and provision storage
@@ -20,15 +19,11 @@ Now run the following command in the terminal to confirm your persistent volume 
 ```
 kubectl get pvc
 ```
-The expected output from the above command should be similar to:
 
-In the terminal, execute the following command to set up a storage volume that is connected to the PVC we created in the previous step.  This is one method of persisting data in the cloud even if your Kubernetes pods restart.  ***Important Note: Data will NOT persist if you delete the persistent volume claim!  If you plan to start over and you run `minikube delete` your persistent volume and persistent volume claim will be deleted!***
-
+Run the following command to deploy Redis storage.
 ```
 kubectl apply -f redis-storage.yaml
 ```
-Expected output after running the above command is similar to below.
-
 
 In the terminal, run the following command to check the status of the pod.
 ```
@@ -119,7 +114,7 @@ export FABRIC_CA_CLIENT_HOME=$PWD/symbridge-orderer-ca/admin
 
 We will register the peer admin first. This identity will be used to operate the peer:
 ```
-fabric-ca-client register --caname orderer-ca --id.name ordereradmin --id.secret ordererpw --id.type admin --tls.certfiles ${PWD}/hyperledger/orderer-ca/tls-cert.pem
+fabric-ca-client register --caname orderer-ca --id.name osadmin --id.secret osadminpw --id.type admin --tls.certfiles ${PWD}/hyperledger/orderer-ca/tls-cert.pem
 ```
 
 We can now register the peer identity:
@@ -183,22 +178,78 @@ cp ${PWD}/hyperledger/peer/config.yaml $PWD/symbridge-peer-ca/peeradmin/msp/conf
 Now that we have registered the identity, we can generate the certificates for our nodes. First, enroll the peer admin:
 
 ```
-fabric-ca-client enroll -u https://peeradmin:peeradminpw@159.122.186.71:30122 --caname peer-ca -M $PWD/symbridge-peer-ca/peeradmin/msp --tls.certfiles ${PWD}/hyperledger/peer-ca/tls-cert.pem
+fabric-ca-client enroll -u https://osadmin:osadminpw@159.122.186.71:30122 --caname orderer-ca -M $PWD/orderer-peer-ca/ordereradmin/msp --tls.certfiles ${PWD}/hyperledger/orderer-ca/tls-cert.pem
 ```
 
 We can now enroll the peer. We will complete two enrollments, once against the enrollment CA to generate the peer signing certificate, and again to generate the peer TLS certificates.
 ```
-fabric-ca-client enroll -u https://peer:peerpw@159.122.186.71:30122 --caname peer-ca -M ${PWD}/hyperledger/peer/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/msp --csr.hosts peer.symbridge.com --tls.certfiles ${PWD}/hyperledger/peer-ca/tls-cert.pem
+fabric-ca-client enroll -u https://orderer:ordererpw@159.122.186.71:30122 --caname orderer-ca -M ${PWD}/hyperledger/orderer/ordererOrganizations/example.com/orderers/orderer.example.com/msp --csr.hosts orderer.symbridge.com --tls.certfiles ${PWD}/hyperledger/orderer-ca/tls-cert.pem
 ```
 
 ```
-fabric-ca-client enroll -u https://peer:peerpw@159.122.186.71:30122 --caname peer-ca -M ${PWD}/hyperledger/peer/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls --enrollment.profile tls --csr.hosts 159.122.186.71 --csr.hosts 127.0.0.1 --tls.certfiles ${PWD}/hyperledger/peer-ca/tls-cert.pem
+fabric-ca-client enroll -u https://orderer:ordererpw@159.122.186.71:30122 --caname orderer-ca -M ${PWD}/hyperledger/orderer/ordererOrganizations/example.com/orderers/orderer.example.com/tls --enrollment.profile tls --csr.hosts 159.122.186.71 --csr.hosts 127.0.0.1 --tls.certfiles ${PWD}/hyperledger/orderer-ca/tls-cert.pem
 ```
 
+
+### Rename some files
+
+Rename your TLS private key `server.key` to make it easier to work with.
+
+### Node OU configuration file
+
+To configure the Node OU feature, we need to create and copy the following file into the MSP file of each identity.
+
+Run the following command to create the file:
+```
+echo 'NodeOUs:
+  Enable: true
+  ClientOUIdentifier:
+    Certificate: cacerts/159-122-186-71-30122-orderer-ca.pem
+    OrganizationalUnitIdentifier: client
+  PeerOUIdentifier:
+    Certificate: cacerts/159-122-186-71-30122-orderer-ca.pem
+    OrganizationalUnitIdentifier: peer
+  AdminOUIdentifier:
+    Certificate: cacerts/159-122-186-71-30122-orderer-ca.pem
+    OrganizationalUnitIdentifier: admin
+  OrdererOUIdentifier:
+    Certificate: cacerts/159-122-186-71-30122-orderer-ca.pem
+    OrganizationalUnitIdentifier: orderer' > ${PWD}/hyperledger/orderer/config.yaml
+```
+
+You can then run the following commands to copy the configuration file into the correct msp folders:
+
+```
+cp ${PWD}/hyperledger/orderer/config.yaml ${PWD}/hyperledger/orderer/ordererOrganizations/example.com/orderers/orderer.example.com/msp/config.yaml
+cp ${PWD}/hyperledger/orderer/config.yaml $PWD/symbridge-orderer-ca/ordereradmin/msp/config.yaml
+```
+
+
+## Create the genesis Block
+
+In order to deploy an ordering node, we will need to create a genesis block. Set the fabric config path to the configuration file:
+```
+export FABRIC_CFG_PATH=${PWD}/configtx
+```
+
+```
+configtxgen -profile TwoOrgsOrdererGenesis -channelID system-channel -outputBlock ./hyperledger/orderer/genesis.block
+```
+
+## Deploy the orderer
+
+We now have the crypto material and the genesis block required to deploy the ordering node. Copy the certifcates, keys, and block into Redis database.
+
+```
+kubectl cp $PWD/hyperledger/orderer/ redis:/data/redis/hyperledger/
+```
+```
+kubectl apply -f fabric-orderer-deployment.yaml
+```
 
 ## Deploy the peer
 
-We now have created the crypto material required to deploy the peer. Copy those certificates and keys from the local filesystem into kubernetes.
+We now have created the crypto material required to deploy the peer. Copy those certificates and keys from the local filesystem into the Redis databaase.
 ```
 kubectl cp $PWD/hyperledger/peer/ redis:/data/redis/hyperledger/
 ```
@@ -207,14 +258,48 @@ kubectl apply -f fabric-peer-deployment.yaml
 ```
 
 
-## Interact with the peer
+## Create a channel
 
-If the peer is deployed, you can use set environment variables to interact with the peer
+Make sure the fabric config path is set to the confictx.yaml file.
+```
+export FABRIC_CFG_PATH=${PWD}/configtx
+```
 
+Use the file to create the channel creation artifact:
+```
+configtxgen -profile TwoOrgsChannel -outputCreateChannelTx ./channel1.tx -channelID channel1
+```
+
+set the environment variables to talk to our peer:
 ```
 export CORE_PEER_TLS_ENABLED=true
 export CORE_PEER_LOCALMSPID="SymbridgePeerMSP"
 export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/hyperledger/peer/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/signcerts/cert.pem
 export CORE_PEER_MSPCONFIGPATH=${PWD}/symbridge-peer-ca/peeradmin/msp
 export CORE_PEER_ADDRESS=159.122.186.71:30202
+```
+Also reset the Fabric config path:
+```
+export FABRIC_CFG_PATH=${PWD}/config
+```
+
+Now create the channel, pointing to the ordering node that we created. The `--cafile` points to the TLS certificate of the ordering node.
+```
+peer channel create -o 159.122.186.71:30222  -c channel1 -f ./channel1.tx --outputBlock ./channel1.block --tls --cafile ${PWD}/hyperledger/orderer/ordererOrganizations/example.com/orderers/orderer.example.com/tls/tlscacerts/tls-159-122-186-71-30122-orderer-ca.pem
+```
+
+This command will return a block from the orderer. Run the following command to join the peer to the channel:
+```
+peer channel join -b ./channel1.block
+```
+
+You can now verify that the channel was joined:
+```
+peer channel list
+```
+The response will be similar to the following:
+```
+2020-12-30 17:12:08.666 EST [channelCmd] InitCmdFactory -> INFO 001 Endorser and orderer connections initialized
+Channels peers has joined:
+channel1
 ```
