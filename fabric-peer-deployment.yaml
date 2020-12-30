@@ -4,14 +4,14 @@ kind: Service
 metadata:
   name: peer
 spec:
-  type: LoadBalancer
+  type: NodePort
   selector:
     app: peer
   ports:
   - protocol: TCP
-    targetPort: 9040
-    port: 9040
-    nodePort: 30112
+    targetPort: 7040
+    port: 7040
+    nodePort: 30202
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -44,20 +44,20 @@ spec:
         - name: CORE_PEER_ID
           value: peer
         - name: CORE_PEER_ADDRESS
-          value: peer:9040
+          value: peer:7040
         #CORE_PEER_GOSSIP_EXTERNALENDPOINT for Hyperledger Explorer
         - name: CORE_PEER_LISTENADDRESS
-          value: 0.0.0.0:9040
+          value: 0.0.0.0:7040
         - name: CORE_PEER_CHAINCODEADDRESS
-          value: peer:9041
+          value: peer:7041
         - name: CORE_PEER_CHAINCODELISTENADDRESS
-          value: 0.0.0.0:9041
+          value: 0.0.0.0:7041
         - name: CORE_PEER_GOSSIP_EXTERNALENDPOINT
-          value: peer:9040
+          value: peer:7040
         - name: CORE_PEER_GOSSIP_BOOTSTRAP
-          value: peer:9040
+          value: peer:7040
         - name: CORE_PEER_GOSSIP_ENDPOINT
-          value: peer:9040
+          value: peer:7040
         - name: CORE_PEER_GOSSIP_ORGLEADER
           value: "true"
         - name: CORE_PEER_GOSSIP_USELEADERELECTION
@@ -65,7 +65,7 @@ spec:
         - name: CORE_VM_ENDPOINT
           value: "unix:///host/var/run/docker.sock"
         - name: CORE_PEER_LOCALMSPID
-          value: Org1MSP
+          value: SymbridgePeerMSP
         - name: CORE_PEER_MSPCONFIGPATH
           value: /shared/hyperledger/peer/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/msp/
         - name: CORE_PEER_FILESYSTEMPATH
@@ -77,15 +77,15 @@ spec:
         - name: CORE_PEER_TLS_ENABLED
           value: "true"
         - name: CORE_PEER_TLS_CERT_FILE
-          value: "/shared/hyperledger/peer/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt"
+          value: "/shared/hyperledger/peer/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/signcerts/cert.pem"
         - name: CORE_PEER_TLS_KEY_FILE
-          value: "/shared/hyperledger/peer/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.key"
+          value: "/shared/hyperledger/peer/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/keystore/server.key"
         - name: CORE_PEER_TLS_ROOTCERT_FILE
-          value: "/shared/hyperledger/peer/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt"
+          value: "/shared/hyperledger/peer/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/tlscacerts/tls-159-122-186-71-30102-peer-ca.pem"
         - name: CORE_LEDGER_STATE_STATEDATABASE
           value: "goleveldb"
         volumeMounts:
         - mountPath: /shared
           name: redis-storage
         ports:
-        - containerPort: 9040
+        - containerPort: 7040

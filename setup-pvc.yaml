@@ -1,11 +1,30 @@
----
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: mypvc
+  name: filepvc
 spec:
+  storageClassName: manual
   accessModes:
-    - ReadWriteOnce
+    - ReadWriteMany
   resources:
     requests:
-      storage: 1Gi
+      storage: 10Gi
+  selector:
+    matchLabels:
+      name: myvolume
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: myvolume
+  labels:
+    type: local
+    name: myvolume
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  hostPath:
+    path: "/tmp"
