@@ -33,6 +33,9 @@ spec:
       - name: redis-storage
         persistentVolumeClaim:
           claimName: filepvc
+      - name: dockersocket
+        hostPath:
+          path: /var/run/docker.sock
 
       containers:
       - name: peer
@@ -87,5 +90,8 @@ spec:
         volumeMounts:
         - mountPath: /shared
           name: redis-storage
+        - mountPath: /host/var/run/docker.sock
+          name: dockersocket
+
         ports:
         - containerPort: 7040

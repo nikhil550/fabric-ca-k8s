@@ -1,4 +1,4 @@
-# Hyperledger Fabric on IBM CLoud
+# Hyperledger Fabric on IBM Cloud
 
 ## Connect to your IBM Kubernetes service
 
@@ -32,10 +32,9 @@ kubectl get pod
 Expected output after running the above command is similar to below.
 
 
-
 ## Deploy the CA's
 
-We will deploy two CA's, one for the peer and one for the orderer. Copy the `fabric-ca-server-config.yaml` file for the two  into the redis container:
+We will deploy two CA's, one for the peer and one for the orderer. Copy the `fabric-ca-server-config.yaml` file for the two  into the Redis container:
 
 ```
 kubectl cp $PWD/hyperledger/ redis:/data/redis/
@@ -56,7 +55,7 @@ You can use the following command to make sure that the two pods are running
 kubectl get pods
 ```
 
-You can interact with the CA by copying the TLS certificates of the two CA's from the redis database to your local filesystem.
+You can interact with the CA by copying the TLS certificates of the two CA's from the Redis database to your local filesystem.
 ```
 kubectl cp redis:/data/redis/hyperledger/orderer-ca/tls-cert.pem $PWD/hyperledger/orderer-ca/tls-cert.pem
 ```
@@ -65,7 +64,7 @@ and
 kubectl cp redis:/data/redis/hyperledger/peer-ca/tls-cert.pem $PWD/hyperledger/peer-ca/tls-cert.pem
 ```
 
-### enroll the CA admins
+### Enroll the CA admins
 
 Ensure that the Fabric binaries and configuration files are copied to your local folder to ``$PWD/bin`` and `$PWD/config`. You can then use the Fabric CA by setting the following
 ```
@@ -87,7 +86,10 @@ export FABRIC_CA_CLIENT_HOME=$PWD/symbridge-orderer-ca/admin
 fabric-ca-client enroll -d -u https://admin:adminpw@159.122.186.71:30122 --caname orderer-ca --tls.certfiles ${PWD}/hyperledger/orderer-ca/tls-cert.pem
 ```
 
-## Register the peer identities
+
+## Using the peer CA
+
+### Register node and user identities
 
 The CA admin lets us register the peer identities, and peer admin. Set the Fabric CA home path to use the CA admin of the peer CA:
 ```
@@ -105,24 +107,7 @@ fabric-ca-client register --caname peer-ca --id.name peer --id.secret peerpw --i
 ```
 
 
-## Register the orderer identities
-
-We can follow the same steps to set up the ordering node using the orderer ca.
-```
-export FABRIC_CA_CLIENT_HOME=$PWD/symbridge-orderer-ca/admin
-```
-
-We will register the peer admin first. This identity will be used to operate the peer:
-```
-fabric-ca-client register --caname orderer-ca --id.name osadmin --id.secret osadminpw --id.type admin --tls.certfiles ${PWD}/hyperledger/orderer-ca/tls-cert.pem
-```
-
-We can now register the peer identity:
-```
-fabric-ca-client register --caname orderer-ca --id.name orderer --id.secret ordererpw --id.type orderer --tls.certfiles ${PWD}/hyperledger/orderer-ca/tls-cert.pem
-```
-
-## Enroll the peer identities
+### Enroll the peer identities
 
 Now that we have registered the identity, we can generate the certificates for our nodes. First, enroll the peer admin:
 
@@ -172,8 +157,27 @@ cp ${PWD}/hyperledger/peer/config.yaml ${PWD}/hyperledger/peer/peerOrganizations
 cp ${PWD}/hyperledger/peer/config.yaml $PWD/symbridge-peer-ca/peeradmin/msp/config.yaml
 ```
 
+## Using the orderer CA
 
-## Enroll the orderer identities
+### Register the node and user identities
+
+We can follow the same steps to set up the ordering node using the orderer ca.
+```
+export FABRIC_CA_CLIENT_HOME=$PWD/symbridge-orderer-ca/admin
+```
+
+We will register the peer admin first. This identity will be used to operate the peer:
+```
+fabric-ca-client register --caname orderer-ca --id.name osadmin --id.secret osadminpw --id.type admin --tls.certfiles ${PWD}/hyperledger/orderer-ca/tls-cert.pem
+```
+
+We can now register the peer identity:
+```
+fabric-ca-client register --caname orderer-ca --id.name orderer --id.secret ordererpw --id.type orderer --tls.certfiles ${PWD}/hyperledger/orderer-ca/tls-cert.pem
+```
+
+
+### Enroll the orderer identities
 
 Now that we have registered the identity, we can generate the certificates for our nodes. First, enroll the peer admin:
 
@@ -189,7 +193,6 @@ fabric-ca-client enroll -u https://orderer:ordererpw@159.122.186.71:30122 --cana
 ```
 fabric-ca-client enroll -u https://orderer:ordererpw@159.122.186.71:30122 --caname orderer-ca -M ${PWD}/hyperledger/orderer/ordererOrganizations/example.com/orderers/orderer.example.com/tls --enrollment.profile tls --csr.hosts 159.122.186.71 --csr.hosts 127.0.0.1 --tls.certfiles ${PWD}/hyperledger/orderer-ca/tls-cert.pem
 ```
-
 
 ### Rename some files
 
@@ -217,7 +220,7 @@ echo 'NodeOUs:
     OrganizationalUnitIdentifier: orderer' > ${PWD}/hyperledger/orderer/config.yaml
 ```
 
-You can then run the following commands to copy the configuration file into the correct msp folders:
+You can then run the following commands to copy the configuration file into the correct MSP folders:
 
 ```
 cp ${PWD}/hyperledger/orderer/config.yaml ${PWD}/hyperledger/orderer/ordererOrganizations/example.com/orderers/orderer.example.com/msp/config.yaml
@@ -225,7 +228,7 @@ cp ${PWD}/hyperledger/orderer/config.yaml $PWD/symbridge-orderer-ca/ordereradmin
 ```
 
 
-## Create the genesis Block
+## Create the orderer system channel genesis block
 
 In order to deploy an ordering node, we will need to create a genesis block. Set the fabric config path to the configuration file:
 ```
@@ -302,4 +305,15 @@ The response will be similar to the following:
 2020-12-30 17:12:08.666 EST [channelCmd] InitCmdFactory -> INFO 001 Endorser and orderer connections initialized
 Channels peers has joined:
 channel1
+```
+
+## Deploy a smart contract
+
+Package the smart contract in the fabric samples directory:
+```
+peer lifecycle chaincode package basic.tar.gz --path ../fabric-samples/asset-transfer-basic/chaincode-go/ --lang golang --label basic_1.0
+```
+
+```
+peer lifecycle chaincode install basic.tar.gz
 ```
