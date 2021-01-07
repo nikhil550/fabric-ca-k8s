@@ -317,3 +317,70 @@ peer lifecycle chaincode package basic.tar.gz --path ../fabric-samples/asset-tra
 ```
 peer lifecycle chaincode install basic.tar.gz
 ```
+
+## Deploy a peer using TLS secrets
+
+Use the peer identity to enroll a new peer identity.
+
+```
+fabric-ca-client enroll -u https://peer:peerpw@159.122.186.71:30102 --caname peer-ca -M ${PWD}/hyperledger/peer/peerOrganizations/org1.example.com/peers/peer2.org1.example.com/msp --csr.hosts peer.symbridge.com --tls.certfiles ${PWD}/hyperledger/peer-ca/tls-cert.pem
+```
+
+```
+fabric-ca-client enroll -u https://peer:peerpw@159.122.186.71:30102 --caname peer-ca -M ${PWD}/hyperledger/peer/peerOrganizations/org1.example.com/peers/peer2.org1.example.com/tls --enrollment.profile tls --csr.hosts 159.122.186.71 --csr.hosts 127.0.0.1 --tls.certfiles ${PWD}/hyperledger/peer-ca/tls-cert.pem
+```
+
+Rename the keys cacert.pem, key.pem, and cert.pem to make them easier to work with.
+
+For the cacert:
+```
+kubectl create secret generic peer2-cacert --from-file=cacert.pem=./hyperledger/peer/peerOrganizations/org1.example.com/peers/peer2.org1.example.com/msp/cacerts/cacert.pem
+```
+signcert:
+```
+kubectl create secret generic peer2-cert --from-file=cert.pem=./hyperledger/peer/peerOrganizations/org1.example.com/peers/peer2.org1.example.com/msp/signcerts/cert.pem
+```
+
+and private key:
+```
+kubectl create secret generic peer2-key --from-file=key.pem=./hyperledger/peer/peerOrganizations/org1.example.com/peers/peer2.org1.example.com/msp/keystore/key.pem
+```
+
+Run the following command to create the configfile file:
+```
+echo 'NodeOUs:
+  Enable: true
+  ClientOUIdentifier:
+    Certificate: cacerts/cacert.pem
+    OrganizationalUnitIdentifier: client
+  PeerOUIdentifier:
+    Certificate: cacerts/cacert.pem
+    OrganizationalUnitIdentifier: peer
+  AdminOUIdentifier:
+    Certificate: cacerts/cacert.pem
+    OrganizationalUnitIdentifier: admin
+  OrdererOUIdentifier:
+    Certificate: cacerts/cacert.pem
+    OrganizationalUnitIdentifier: orderer' > ${PWD}/hyperledger/peer2/config.yaml
+```
+
+```
+kubectl create secret generic peer2-configfile --from-file=config.yaml=./config.yaml
+```
+
+We need to do the same process with the TLS certs:
+
+For the TLS cacert:
+```
+kubectl create secret generic peer2-tlscacert --from-file=tlscacert.pem=./hyperledger/peer/peerOrganizations/org1.example.com/peers/peer2.org1.example.com/tls/tlscacerts/tlscacert.pem
+```
+
+TLS signcert:
+```
+kubectl create secret generic peer2-tlscert --from-file=cert.pem=./hyperledger/peer/peerOrganizations/org1.example.com/peers/peer2.org1.example.com/tls/signcerts/cert.pem
+```
+
+and TLS private key:
+```
+kubectl create secret generic peer2-tlskey --from-file=key.pem=./hyperledger/peer/peerOrganizations/org1.example.com/peers/peer2.org1.example.com/tls/keystore/key.pem
+```
